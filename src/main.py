@@ -1,5 +1,8 @@
 import mv3d2 as mv3d
 import mv3d_net
+from train import *
+from tracking import *
+from data import *
 import glob
 from sklearn.utils import shuffle
 from config import *
@@ -9,6 +12,7 @@ import os
 from utils.training_validation_data_splitter import TrainingValDataSplitter
 from utils.batch_loading import BatchLoading2 as BatchLoading
 from tracking import str2bool
+import time
 
 if __name__ == '__main__':
     all = '%s,%s,%s' % (mv3d_net.top_view_rpn_name, mv3d_net.imfeature_net_name, mv3d_net.fusion_net_name)
@@ -16,6 +20,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='main')
     parser.add_argument("-test", help="running test", action="store_true")
     parser.add_argument("-tr", "--training", help="running trainer", action="store_true")
+    parser.add_argument("-data", help="running data", action="store_true")
     parser.add_argument('-w', '--weights', type=str, nargs='?', default='',
                         help='use pre trained weights example: -w "%s" ' % (all))
     parser.add_argument('-t', '--targets', type=str, nargs='?', default=all,
@@ -166,8 +171,88 @@ if __name__ == '__main__':
         #print("tracklet_pred_dir: " + tracklet_pred_dir)
         pred_file = pred_and_save(tracklet_pred_dir, dataset_loader,
                                   frame_offset=0, log_tag=tag, weights_tag=weights_tag)
-        if if_score:
-            tracklet_score(pred_file=pred_file, gt_file=gt_tracklet_file, output_dir=tracklet_pred_dir)
-            print("scores are save under {} directory.".format(tracklet_pred_dir))
+        #if if_score:
+        tracklet_score(pred_file=pred_file, gt_file=gt_tracklet_file, output_dir=tracklet_pred_dir)
+        print("scores are save under {} directory.".format(tracklet_pred_dir))
 
-            print("Completed")
+        print("Completed")
+
+    elif args.data:
+        print ('Ok! you runned the data')
+
+        print('%s: calling main function ... ' % os.path.basename(__file__))
+        if (cfg.DATA_SETS_TYPE == 'didi'):
+            data_dir = {'1': ['15', '10']}
+            data_dir = OrderedDict(data_dir)
+            frames_index = None  # None
+        elif (cfg.DATA_SETS_TYPE == 'didi2'):
+            dir_prefix = '/home/stu/round12_data/raw/didi'
+
+            bag_groups = ['suburu_pulling_to_left',
+                          'nissan_following_long',
+                          'suburu_following_long',
+                          'nissan_pulling_to_right',
+                          'suburu_not_visible',
+                          'cmax_following_long',
+                          'nissan_driving_past_it',
+                          'cmax_sitting_still',
+                          'suburu_pulling_up_to_it',
+                          'suburu_driving_towards_it',
+                          'suburu_sitting_still',
+                          'suburu_driving_away',
+                          'suburu_follows_capture',
+                          'bmw_sitting_still',
+                          'suburu_leading_front_left',
+                          'nissan_sitting_still',
+                          'nissan_brief',
+                          'suburu_leading_at_distance',
+                          'bmw_following_long',
+                          'suburu_driving_past_it',
+                          'nissan_pulling_up_to_it',
+                          'suburu_driving_parallel',
+                          'nissan_pulling_to_left',
+                          'nissan_pulling_away', 'ped_train']
+
+            bag_groups = ['suburu_pulling_to_left',
+                          'nissan_following_long',
+                          'nissan_driving_past_it',
+                          'cmax_sitting_still',
+                          'cmax_following_long',
+                          'suburu_driving_towards_it',
+                          'suburu_sitting_still',
+                          'suburu_driving_away',
+                          'suburu_follows_capture',
+                          'bmw_sitting_still',
+                          'suburu_leading_front_left',
+                          'nissan_sitting_still',
+                          'suburu_leading_at_distance',
+                          'suburu_driving_past_it',
+                          'nissan_pulling_to_left',
+                          'nissan_pulling_away', 'ped_train']
+
+            # use orderedDict to fix the dictionary order.
+            data_dir = OrderedDict([(bag_group, None) for bag_group in bag_groups])
+            print('ordered dictionary here: ', data_dir)
+
+            frames_index = None  # None
+        elif cfg.DATA_SETS_TYPE == 'kitti':
+            data_dir = {'2011_09_26': ['0051']}
+
+            frames_index = None  # [0,5,8,12,16,20,50]
+        elif cfg.DATA_SETS_TYPE == 'test':
+            data_dir = {'1': None, '2': None}
+            data_dir = OrderedDict(data_dir)
+            frames_index = None
+        else:
+            raise ValueError('unexpected type in cfg.DATA_SETS_TYPE item: {}!'.format(cfg.DATA_SETS_TYPE))
+
+
+        t0 = time.time()
+
+        preproces(data_dir, frames_index)
+
+        print('use time : {}'.format(time.time() - t0))
+
+
+
+

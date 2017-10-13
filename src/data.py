@@ -17,7 +17,7 @@ import config
 import ctypes
 from numba import jit
 from matplotlib import pyplot as plt
-
+import time
 import sys
 
 if config.cfg.USE_CLIDAR_TO_TOP:

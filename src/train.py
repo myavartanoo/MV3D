@@ -56,8 +56,9 @@ if __name__ == '__main__':
          ]
 
         validation_dataset = {
-            '2011_09_26': ['0051']
-        }
+            '2011_09_26': ['0001','0002','0005','0011','0013','0014','0017','0018','0048',
+                           '0051','0056','0057','0059','0060','0084','0091','0093','0095',
+                           '0096','0104','0106','0113','0117']}
 
         train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
         data_splitter = TrainingValDataSplitter(train_n_val_dataset)
