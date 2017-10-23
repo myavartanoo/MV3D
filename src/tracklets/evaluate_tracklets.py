@@ -351,6 +351,9 @@ def tracklet_score(pred_file, gt_file, filter_indices_file=None, exclude_indices
         r = v['TP'] / (v['TP'] + v['FN']) if v['TP'] else 0.0
         # f1 = 2 * (p * r) / (p + r) if (p + r != 0) else 0.0
         results_table['pr_per_iou'][k] = {'precision': p, 'recall': r}
+        acc = (v['TP'] + v['TN'])/(v['TP'] + v['TN'] + v['FP'] + v['FN'])
+        print (acc)
+
 
     print('\nResults')
     print(yaml.safe_dump(results_table, default_flow_style=False, explicit_start=True))

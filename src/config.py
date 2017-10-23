@@ -47,19 +47,19 @@ __C.PREDICTED_XML_DIR = osp.join(__C.DATA_SETS_DIR, 'predicted', __C.DATA_SETS_T
 __C.CHECKPOINT_DIR=osp.join(__C.ROOT_DIR,'checkpoint')
 __C.LOG_DIR=osp.join(__C.ROOT_DIR,'log')
 
-__C.USE_RESNET_AS_TOP_BASENET = True
+__C.USE_RESNET_AS_TOP_BASENET = False
 __C.TOP_CONV_KERNEL_SIZE = 32   #default 3
 
 __C.IMAGE_FUSION_DIABLE = False
-__C.RGB_BASENET = 'resnet'  # 'resnet' 'xception' 'VGG'
+__C.RGB_BASENET = 'VGG'  # 'resnet' 'xception' 'VGG'
 if __C.RGB_BASENET == 'xception':
     __C.USE_IMAGENET_PRE_TRAINED_MODEL = True
 else:
-    __C.USE_IMAGENET_PRE_TRAINED_MODEL =False
+    __C.USE_IMAGENET_PRE_TRAINED_MODEL =True
 
 __C.TRACKLET_GTBOX_LENGTH_SCALE = 1.6
 __C.PREDICT_SCORE_THRESHOLD = 0.5
-__C.TRACKLET_EXTRA_INFO = False
+__C.TRACKLET_EXTRA_INFO = True
 
 # image crop config
 if __C.DATA_SETS_TYPE ==  'didi' or __C.DATA_SETS_TYPE   ==  'test':

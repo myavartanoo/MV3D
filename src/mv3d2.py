@@ -1,5 +1,7 @@
 import os
 import numpy as np
+from data import draw_top_image, draw_box3d_on_top
+
 # np.random.seed(7)
 import tensorflow as tf
 # tf.set_random_seed(7)
@@ -212,7 +214,7 @@ class MV3D(object):
         }
 
         self.batch_proposals, self.batch_proposal_scores = \
-            self.sess.run([self.net['proposals'], self.net['proposal_scores']], fd1)
+        self.sess.run([self.net['proposals'], self.net['proposal_scores']], fd1)
         self.batch_proposal_scores = np.reshape(self.batch_proposal_scores, (-1))
         self.top_rois = self.batch_proposals
         if len(self.top_rois) == 0:
@@ -515,7 +517,7 @@ class Trainer(MV3D):
                 elif set([mv3d_net.top_view_rpn_name, mv3d_net.imfeature_net_name,mv3d_net.fusion_net_name])\
                         == set(train_targets):
                     targets_loss = 1. * (1. * self.top_cls_loss + 0.05 * self.top_reg_loss) + \
-                                 1. * self.fuse_cls_loss + 0.1 * self.fuse_reg_loss
+                                   1. * self.fuse_cls_loss + 1. * self.fuse_reg_loss
                 else:
                     ValueError('unknow train_target set')
 
@@ -585,9 +587,11 @@ class Trainer(MV3D):
 
         # labels, deltas, rois3d, top_img, cam_img, class_color
         top_img, cam_img = draw_fusion_target(self.batch_fuse_labels, self.batch_fuse_targets, self.batch_rois3d,
-                                              top_image, rgb, [[10, 20, 10], [255, 0, 0]])
-        # nud.imsave('fusion_target_rgb', cam_img, subdir)
-        # nud.imsave('fusion_target_top', top_img, subdir)
+                                              top_image, rgb, [[0, 255, 0], [255, 0, 0]])
+        print ('images saved in:')
+        print (subdir)
+        nud.imsave('fusion_target_rgb', cam_img, subdir)
+        nud.imsave('fusion_target_top', top_img, subdir)
         self.summary_image(cam_img, scope_name+'/fusion_target_rgb', step=self.n_global_step)
         self.summary_image(top_img, scope_name+'/fusion_target_top', step=self.n_global_step)
 

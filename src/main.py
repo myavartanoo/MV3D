@@ -63,11 +63,11 @@ if __name__ == '__main__':
         if cfg.DATA_SETS_TYPE == 'kitti':
             train_n_val_dataset = [
                 # '2011_09_26/2011_09_26_drive_0001_sync', # for tracking
-                '2011_09_26/2011_09_26_drive_0001_sync',
+                '2011_09_26/2011_09_26_drive_0027_sync',
              ]
 
             validation_dataset = {
-                '2011_09_26': ['0051']
+                '2011_09_26': ['0027']
             }
 
             train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
@@ -236,7 +236,7 @@ if __name__ == '__main__':
 
             frames_index = None  # None
         elif cfg.DATA_SETS_TYPE == 'kitti':
-            data_dir = {'2011_09_26': ['0051']}
+            data_dir = {'2011_09_26': ['0027']}
 
             frames_index = None  # [0,5,8,12,16,20,50]
         elif cfg.DATA_SETS_TYPE == 'test':

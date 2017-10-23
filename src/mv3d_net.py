@@ -34,6 +34,8 @@ def top_feature_net(input, anchors, inds_inside, num_bases):
     :return: 
             top_features, top_scores, top_probs, top_deltas, proposals, proposal_scores
     """
+    print('build_VGG')
+
     stride=1.
     #with tf.variable_scope('top-preprocess') as scope:
     #    input = input

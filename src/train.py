@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--targets', type=str, nargs='?', default=all,
         help='train targets example: -w "%s" ' % (all))
 
-    parser.add_argument('-i', '--max_iter', type=int, nargs='?', default=100000,
+    parser.add_argument('-i', '--max_iter', type=int, nargs='?', default=1000000,
                         help='max count of train iter')
 
     parser.add_argument('-n', '--tag', type=str, nargs='?', default='unknown_tag',
@@ -48,30 +48,64 @@ if __name__ == '__main__':
 
     dataset_dir = cfg.PREPROCESSED_DATA_SETS_DIR
 
+    cfg.DATA_SETS_TYPE == 'kitti'
+    train_n_val_dataset = [
+        # '2011_09_26/2011_09_26_drive_0001_sync', # for tracking
+        '2011_09_26/2011_09_26_drive_0002_sync',
+        '2011_09_26/2011_09_26_drive_0005_sync',
+        # '2011_09_26/2011_09_26_drive_0009_sync',
+        '2011_09_26/2011_09_26_drive_0011_sync',
+        '2011_09_26/2011_09_26_drive_0013_sync',
+        '2011_09_26/2011_09_26_drive_0014_sync',
+        '2011_09_26/2011_09_26_drive_0015_sync',
+        '2011_09_26/2011_09_26_drive_0017_sync',
+        '2011_09_26/2011_09_26_drive_0018_sync',
+        '2011_09_26/2011_09_26_drive_0019_sync',
+        '2011_09_26/2011_09_26_drive_0020_sync',
+        '2011_09_26/2011_09_26_drive_0022_sync',
+        '2011_09_26/2011_09_26_drive_0023_sync',
+        '2011_09_26/2011_09_26_drive_0027_sync',
+        '2011_09_26/2011_09_26_drive_0028_sync',
+        '2011_09_26/2011_09_26_drive_0029_sync',
+        '2011_09_26/2011_09_26_drive_0032_sync',
+        '2011_09_26/2011_09_26_drive_0035_sync',
+        '2011_09_26/2011_09_26_drive_0036_sync',
+        '2011_09_26/2011_09_26_drive_0039_sync',
+        '2011_09_26/2011_09_26_drive_0046_sync',
+        '2011_09_26/2011_09_26_drive_0048_sync',
+        '2011_09_26/2011_09_26_drive_0051_sync',
+        '2011_09_26/2011_09_26_drive_0052_sync',
+        '2011_09_26/2011_09_26_drive_0056_sync',
+        '2011_09_26/2011_09_26_drive_0057_sync',
+        '2011_09_26/2011_09_26_drive_0059_sync',
+        '2011_09_26/2011_09_26_drive_0060_sync',
+        '2011_09_26/2011_09_26_drive_0061_sync',
+        '2011_09_26/2011_09_26_drive_0064_sync',
+        '2011_09_26/2011_09_26_drive_0070_sync',
+        '2011_09_26/2011_09_26_drive_0079_sync',
+        '2011_09_26/2011_09_26_drive_0084_sync',
+        '2011_09_26/2011_09_26_drive_0086_sync',
+        '2011_09_26/2011_09_26_drive_0087_sync',
+        '2011_09_26/2011_09_26_drive_0091_sync',
+        # '2011_09_26/2011_09_26_drive_0093_sync',  #data size not same
+        # '2011_09_26/2011_09_26_drive_0095_sync',
+        # '2011_09_26/2011_09_26_drive_0096_sync',
+        # '2011_09_26/2011_09_26_drive_0104_sync',
+        # '2011_09_26/2011_09_26_drive_0106_sync',
+        # '2011_09_26/2011_09_26_drive_0113_sync',
+        # '2011_09_26/2011_09_26_drive_0117_sync',
+        '2011_09_26/2011_09_26_drive_0119_sync',
+    ]
 
-    if cfg.DATA_SETS_TYPE == 'kitti':
-        train_n_val_dataset = [
-            # '2011_09_26/2011_09_26_drive_0001_sync', # for tracking
-            '2011_09_26/2011_09_26_drive_0001_sync',
-         ]
+    # shuffle bag list or same kind of bags will only be in training or validation set.
+train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
+data_splitter = TrainingValDataSplitter(train_n_val_dataset)
 
-        validation_dataset = {
-            '2011_09_26': ['0001','0002','0005','0011','0013','0014','0017','0018','0048',
-                           '0051','0056','0057','0059','0060','0084','0091','0093','0095',
-                           '0096','0104','0106','0113','0117']}
+with BatchLoading(tags=data_splitter.training_tags, require_shuffle=True, random_num=np.random.randint(100),
+                  is_flip=False) as training:
+    with BatchLoading(tags=data_splitter.val_tags, queue_size=1, require_shuffle=True, random_num=666) as validation:
+        train = mv3d.Trainer(train_set=training, validation_set=validation,
+                             pre_trained_weights=weights, train_targets=targets, log_tag=tag,
+                             continue_train=args.continue_train)
 
-        train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
-        data_splitter = TrainingValDataSplitter(train_n_val_dataset)
-
-        with BatchLoading(tags=data_splitter.training_tags, require_shuffle=True, random_num=np.random.randint(100),
-                          is_flip=False) as training:
-            with BatchLoading(tags=data_splitter.val_tags, queue_size=1, require_shuffle=True,
-                              random_num=666) as validation:
-                #train = mv3d.Trainer(train_set=training, validation_set=validation,
-                                     #pre_trained_weights=weights, train_targets=targets, log_tag=tag,
-                                     #continue_train=args.continue_train,
-                                     #fast_test_mode=True if max_iter == 1 else False)
-                train = mv3d.Trainer(train_set=training, validation_set=validation,
-                                     pre_trained_weights=weights, train_targets=targets, log_tag=tag,
-                                     continue_train=args.continue_train)
-                train(max_iter=max_iter)
+        train(max_iter=max_iter)
