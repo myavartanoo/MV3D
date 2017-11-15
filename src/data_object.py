@@ -1,8 +1,9 @@
 from kitti_data import pykitti
+from read_obj import computeBox3D, readCalibration, readLabels
 from kitti_data.pykitti.tracklet import parseXML, TRUNC_IN_IMAGE, TRUNC_TRUNCATED
 # from kitti_data.draw import *
 from kitti_data.io import *
-from net.utility.draw import imsave, draw_box3d_on_camera, draw_box3d_on_camera
+from net.utility.draw import imsave, draw_box3d_on_camera_obj
 
 import net.utility.draw as draw
 from net.processing.boxes3d import *
@@ -85,7 +86,7 @@ class Preprocess(object):
     # project 3D points to camera plane
     def project_points(self, points):
         pp = box3d_to_rgb_box(points)
-        #print(pp.shape)
+        print(pp.shape)
         return pp
 
 
@@ -137,7 +138,7 @@ class Preprocess(object):
     # project 3D points to camera plane
     def project_points(self, points):
         pp = box3d_to_rgb_box(points)
-        #print(pp.shape)
+        print(pp.shape)
         return pp
 
     # draw bbox on camera image
@@ -202,24 +203,8 @@ def filter_center_car(lidar):
     lidar = lidar[idx]
     return lidar
 
-## objs to gt boxes ##
-def obj_to_gt_boxes3d(objs):
 
-    num        = len(objs)
-    gt_boxes3d = np.zeros((num,8,3),dtype=np.float32)
-    gt_labels  = np.zeros((num),    dtype=np.int32)
 
-    for n in range(num):
-        obj = objs[n]
-        b   = obj.box
-        label=0
-        if obj.type=='Car' or  obj.type == 'Van' or obj.type == 'Truck' or obj.type == 'Tram':
-            label = 1
-
-        gt_labels [n]=label
-        gt_boxes3d[n]=b
-
-    return  gt_boxes3d, gt_labels
 
 def draw_top_image(lidar_top):
     top_image = np.sum(lidar_top,axis=2)
@@ -367,7 +352,7 @@ def proprecess_rgb(save_preprocess_dir,dataset,date,drive,frames_index,overwrite
     os.makedirs(dataset_dir, exist_ok=True)
     count = 0
     for n in frames_index:
-        path=os.path.join(dataset_dir,'%05d.png' % n)
+        path=os.path.join(dataset_dir,'%02d.png' % n)
         if overwrite==False and os.path.isfile(path):
             count += 1
             continue
@@ -377,14 +362,24 @@ def proprecess_rgb(save_preprocess_dir,dataset,date,drive,frames_index,overwrite
         rgb = preprocess.rgb(rgb)
 
         # todo fit it to didi dataset later.
-        gt_boxes3d = np.load(os.path.join(save_preprocess_dir, 'gt_boxes3d', date, drive, '%05d.npy' % n))
-        rgb_image = draw_box3d_on_camera(rgb, gt_boxes3d, color=(0, 0, 80))
+        objects = readLabels('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/label_2', n)
+        print (len(objects))
+        print ('len(objects)')
+
+        P, R0_rect, Tr_velo_to_cam= readCalibration('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/calib',n, 2)
+        gt_boxes3d = []
+        for obj in range(len(objects)):
+            gt_box3d, face_idx, P, R = computeBox3D(objects[obj],P)
+            gt_boxes3d.append(gt_box3d)
+        print('data')
+        print (np.array(gt_boxes3d))
+        rgb_image = draw_box3d_on_camera_obj(rgb, np.array(gt_boxes3d), P, R, R0_rect, Tr_velo_to_cam, color=(0, 0, 80))
         cv2.imwrite(os.path.join(path), rgb_image)
         #cv2.imwrite(save_preprocess_dir + '/rgb/rgb_%05d.png'%n,rgb)
         count += 1
     print('rgb image save done\n')
 
-def generate_top_view(save_preprocess_dir,dataset,objects,date,drive,frames_index,
+def generate_top_view(save_preprocess_dir,dataset,date,drive,frames_index,
                       overwrite=False,dump_image=True):
 
     dataset_dir = os.path.join(save_preprocess_dir, 'top', date, drive)
@@ -394,7 +389,7 @@ def generate_top_view(save_preprocess_dir,dataset,objects,date,drive,frames_inde
     lidars=[]
     pool=Pool(3)
     for n in frames_index:
-        path=os.path.join(dataset_dir,'%05d.npy' % n)
+        path=os.path.join(dataset_dir,'%06d.npy' % n)
         if overwrite==False and os.path.isfile(path):
             count += 1
             continue
@@ -417,7 +412,7 @@ def generate_top_view(save_preprocess_dir,dataset,objects,date,drive,frames_inde
     count = 0
     for top in tops:
         n=frames_index[count]
-        path = os.path.join(dataset_dir, '%05d.npy' % n)
+        path = os.path.join(dataset_dir, '%06d.npy' % n)
         # top = top.astype(np.float16)
         # np.save(path, top)
         np.savez_compressed(path, top_view=top)
@@ -435,12 +430,23 @@ def generate_top_view(save_preprocess_dir,dataset,objects,date,drive,frames_inde
         count = 0
         for top_image in top_images:
             n = frames_index[count]
-            top_image_path = os.path.join(dataset_dir,'%05d.png' % n)
+            top_image_path = os.path.join(dataset_dir,'%06d.png' % n)
 
             # draw bbox on top image
-            if objects!=None:
-                gt_boxes3d, gt_labels = obj_to_gt_boxes3d(objects[count])
-                top_image = draw_box3d_on_top(top_image, gt_boxes3d, color=(0, 0, 80))
+            # todo fit it to didi dataset later.
+            objects = readLabels(
+                '/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/label_2', n)
+            print (len(objects))
+            print ('len(objects)')
+
+            P, R0_rect, Tr_velo_to_cam = readCalibration(
+                '/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/calib', n, 2)
+
+            gt_boxes3d = []
+            for obj in range(len(objects)):
+                gt_box3d, face_idx, P, R = computeBox3D(objects[obj], P)
+                gt_boxes3d.append(gt_box3d)
+            top_image = draw_box3d_on_top(top_image, np.array(gt_boxes3d), color=(0, 0, 80))
             cv2.imwrite(top_image_path, top_image)
             count += 1
             print('top view image {} saved'.format(n))
@@ -448,7 +454,7 @@ def generate_top_view(save_preprocess_dir,dataset,objects,date,drive,frames_inde
     pool.join()
 
 
-def preprocess_bbox(save_preprocess_dir,objects,date,drive,frames_index,overwrite=False):
+def preprocess_bbox(save_preprocess_dir,date,drive,frames_index,overwrite=False):
 
     bbox_dir = os.path.join(save_preprocess_dir, 'gt_boxes3d', date, drive)
     os.makedirs(bbox_dir, exist_ok=True)
@@ -457,8 +463,8 @@ def preprocess_bbox(save_preprocess_dir,objects,date,drive,frames_index,overwrit
     os.makedirs(lable_dir, exist_ok=True)
     count = 0
     for n in frames_index:
-        bbox_path=os.path.join(bbox_dir,'%05d.npy' % n)
-        lable_path=os.path.join(lable_dir,'%05d.npy' % n)
+        bbox_path=os.path.join(bbox_dir,'%06d.npy' % n)
+        lable_path=os.path.join(lable_dir,'%06d.npy' % n)
         if overwrite==False and os.path.isfile(bbox_path):
             count += 1
             continue
@@ -469,36 +475,43 @@ def preprocess_bbox(save_preprocess_dir,objects,date,drive,frames_index,overwrit
 
         print('boxes3d={}'.format(n))
 
-        obj = objects[count]
-        gt_boxes3d, gt_labels = obj_to_gt_boxes3d(obj)
+        # todo fit it to didi dataset later.
+        objects = readLabels('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/label_2', n)
+        print (len(objects))
+        print ('len(objects)')
 
-        np.save(bbox_path, gt_boxes3d)
-        np.save(lable_path, gt_labels)
+        P, R0_rect, Tr_velo_to_cam= readCalibration('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/calib',n, 2)
+        gt_boxes3d = []
+        gt_labels = []
+        for obj in range(len(objects)):
+            gt_box3d, gt_label, P, R = computeBox3D(objects[obj],P)
+            gt_boxes3d.append(gt_box3d)
+            gt_labels.append(gt_label)
+        np.save(bbox_path, np.array(gt_boxes3d))
+        np.save(lable_path, np.array(gt_labels))
         count += 1
 
-def draw_top_view_image(save_preprocess_dir,objects,date,drive,frames_index,overwrite=False):
+def draw_top_view_image(save_preprocess_dir,date,drive,frames_index,overwrite=False):
 
     dataset_dir = os.path.join(save_preprocess_dir, 'top_image', date, drive)
     os.makedirs(dataset_dir, exist_ok=True)
     count = 0
     for n in frames_index:
-        top_image_path=os.path.join(dataset_dir,'%05d.png' % n)
+        top_image_path=os.path.join(dataset_dir,'%06d.png' % n)
         if overwrite==False and os.path.isfile(top_image_path):
             count += 1
             continue
 
         print('draw top view image ={}'.format(n))
 
-        top = np.load(os.path.join(save_preprocess_dir,'top',date,drive,'%05d.npy.npz' % n) )
+        top = np.load(os.path.join(save_preprocess_dir,'top',date,drive,'%06d.npy.npz' % n) )
         top = top['top_view']
         top_image = draw_top_image(top)
 
         # draw bbox on top image
-        if objects != None:
-            gt_boxes3d = np.load(os.path.join(save_preprocess_dir,'gt_boxes3d',date,drive,'%05d.npy' % n))
-            top_image = draw_box3d_on_top(top_image, gt_boxes3d, color=(0, 0, 80))
-        else:
-            print('Not found gt_boxes3d,skip draw bbox on top image')
+        gt_boxes3d = np.load(os.path.join(save_preprocess_dir,'gt_boxes3d',date,drive,'%06d.npy' % n))
+        top_image = draw_box3d_on_top(top_image, gt_boxes3d, color=(0, 0, 80))
+
 
         cv2.imwrite(top_image_path, top_image)
         count += 1
@@ -511,7 +524,7 @@ def dump_lidar(save_preprocess_dir,dataset,date,drive,frames_index,overwrite=Fal
     count = 0
     for n in frames_index:
 
-        lidar_dump_path=os.path.join(dataset_dir,'%05d.npy' % n)
+        lidar_dump_path=os.path.join(dataset_dir,'%06d.npy' % n)
         if overwrite==False and os.path.isfile(lidar_dump_path):
             count += 1
             continue
@@ -522,24 +535,27 @@ def dump_lidar(save_preprocess_dir,dataset,date,drive,frames_index,overwrite=Fal
         count += 1
     print('dump lidar data done\n')
 
-def dump_bbox_on_camera_image(save_preprocess_dir,dataset,objects,date,drive,frames_index,overwrite=False):
+def dump_bbox_on_camera_image(save_preprocess_dir,dataset,date,drive,frames_index,overwrite=False):
     dataset_dir = os.path.join(save_preprocess_dir, 'gt_box_plot', date, drive)
     os.makedirs(dataset_dir, exist_ok=True)
     count = 0
-
     for n in frames_index:
         print('rgb images={}'.format(n))
         rgb = dataset.rgb[count][0]
         rgb = (rgb * 255).astype(np.uint8)
         rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
         rgb=crop_image(rgb)
+        objects = readLabels('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/label_2', n)
+        P, R0_rect, Tr_velo_to_cam= readCalibration('/home/mohsen/Desktop/MV3D/data/raw/kitti/object3d_all/object3d_all_drive_all_sync/calib',n, 2)
+        gt_boxes3d = []
+        for obj in range(len(objects)):
+            gt_box3d, face_idx, P, R = computeBox3D(objects[obj],P)
+            gt_boxes3d.append(gt_box3d)
 
-        objs = objects[count]
-        gt_boxes3d, gt_labels = obj_to_gt_boxes3d(objs)
         img = draw.draw_box3d_on_camera(rgb, gt_boxes3d)
         new_size = (img.shape[1] // 3, img.shape[0] // 3)
         img = cv2.resize(img, new_size)
-        cv2.imwrite(os.path.join(dataset_dir,'%05d.png' % n), img)
+        cv2.imwrite(os.path.join(dataset_dir,'%06d.png' % n), img)
         count += 1
     print('gt box image save done\n')
 
@@ -562,14 +578,9 @@ def is_evaluation_dataset(date, drive):
 
 def data_in_single_driver(raw_dir, date, drive, frames_index=None):
 
-    if (cfg.DATA_SETS_TYPE == 'didi2'):
-        img_path = os.path.join(raw_dir, date, drive, "image_02", "data")
-    elif (cfg.DATA_SETS_TYPE == 'didi'):
-        img_path = os.path.join(raw_dir, date, drive, "image_02", "data")
-    elif cfg.DATA_SETS_TYPE == 'kitti':
+    if cfg.DATA_SETS_TYPE == 'kitti':
         img_path = os.path.join(raw_dir, date, date + "_drive_" + drive + "_sync", "image_02", "data")
-    elif(cfg.DATA_SETS_TYPE == 'test'):
-        img_path = os.path.join(raw_dir, date, drive, "image_02", "data")
+
     else:
         raise ValueError('unexpected type in cfg.DATA_SETS_TYPE item: {}!'.format(cfg.DATA_SETS_TYPE))
 
@@ -591,17 +602,7 @@ def data_in_single_driver(raw_dir, date, drive, frames_index=None):
         # The range argument is optional - default is None, which loads the whole dataset
         dataset = pykitti.raw(raw_dir, date, drive, frames_index) #, range(0, 50, 5))
 
-        # read objects
-        tracklet_file = os.path.join(dataset.data_path, 'tracklet_labels.xml')
-        if os.path.isfile(tracklet_file):
-            objects = read_objects(tracklet_file, frames_index)
 
-
-        elif is_evaluation_dataset(date, drive):
-            objects=None
-            print("Skip read evaluation_dataset's tracklet_labels file : ")
-        else:
-            raise ValueError('read_objects error!!!!!')
 
         # Load some data
         # dataset.load_calib()         # Calibration data are accessible as named tuples
@@ -619,22 +620,22 @@ def data_in_single_driver(raw_dir, date, drive, frames_index=None):
 
 
         if 1:  ##generate top view --------------------
-            generate_top_view(save_preprocess_dir, dataset,objects, date, drive, frames_index,
+            generate_top_view(save_preprocess_dir, dataset, date, drive, frames_index,
                               overwrite=True,dump_image=True)
 
-        if 1 and objects!=None:  ## preprocess boxes3d  --------------------
-            preprocess_bbox(save_preprocess_dir, objects, date, drive, frames_index, overwrite=True)
+        if 1:  ## preprocess boxes3d  --------------------
+            preprocess_bbox(save_preprocess_dir, date, drive, frames_index, overwrite=True)
 
         if 1: ##draw top image with bbox
-            draw_top_view_image(save_preprocess_dir, objects, date, drive, frames_index, overwrite=True)
+            draw_top_view_image(save_preprocess_dir, date, drive, frames_index, overwrite=True)
 
         if 1:  ## rgb images --------------------
             proprecess_rgb(save_preprocess_dir, dataset, date, drive, frames_index, overwrite=False)
         # dump lidar data
         if 0:            dump_lidar(save_preprocess_dir, dataset, date, drive, frames_index, overwrite=False)
 
-        if 1 and objects!= None: #dump gt boxes
-            dump_bbox_on_camera_image(save_preprocess_dir, dataset, objects, date, drive, frames_index, overwrite=True)
+        if 0: #dump gt boxes
+            dump_bbox_on_camera_image(save_preprocess_dir, dataset, date, drive, frames_index, overwrite=True)
 
         ############# analysis ###########################
         # if 0: ## make mean
@@ -711,105 +712,19 @@ def preproces(mapping, frames_index):
 # main #################################################################33
 if __name__ == '__main__':
     print( '%s: calling main function ... ' % os.path.basename(__file__))
-    if (cfg.DATA_SETS_TYPE == 'didi'):
-        data_dir = {'1': ['15', '10']}
-        data_dir = OrderedDict(data_dir)
-        frames_index = None  # None
-    elif (cfg.DATA_SETS_TYPE == 'didi2'):
-        dir_prefix = '/home/stu/round12_data/raw/didi'
+    if cfg.DATA_SETS_TYPE == 'kitti':
+        data_dir = {'object3d_all': ['all']}
 
-        bag_groups = ['suburu_pulling_to_left',
-                 'nissan_following_long',
-                 'suburu_following_long',
-                 'nissan_pulling_to_right',
-                 'suburu_not_visible',
-                 'cmax_following_long',
-                 'nissan_driving_past_it',
-                 'cmax_sitting_still',
-                 'suburu_pulling_up_to_it',
-                 'suburu_driving_towards_it',
-                 'suburu_sitting_still',
-                 'suburu_driving_away',
-                 'suburu_follows_capture',
-                 'bmw_sitting_still',
-                 'suburu_leading_front_left',
-                 'nissan_sitting_still',
-                 'nissan_brief',
-                 'suburu_leading_at_distance',
-                 'bmw_following_long',
-                 'suburu_driving_past_it',
-                 'nissan_pulling_up_to_it',
-                 'suburu_driving_parallel',
-                 'nissan_pulling_to_left',
-                 'nissan_pulling_away', 'ped_train']
+        frames_index = [4736]
 
-        bag_groups = ['suburu_pulling_to_left',
-                     'nissan_following_long',
-                     'nissan_driving_past_it',
-                     'cmax_sitting_still',
-                      'cmax_following_long',
-                     'suburu_driving_towards_it',
-                     'suburu_sitting_still',
-                     'suburu_driving_away',
-                     'suburu_follows_capture',
-                     'bmw_sitting_still',
-                     'suburu_leading_front_left',
-                     'nissan_sitting_still',
-                     'suburu_leading_at_distance',
-                     'suburu_driving_past_it',
-                     'nissan_pulling_to_left',
-                     'nissan_pulling_away', 'ped_train']
-
-        # use orderedDict to fix the dictionary order.
-        data_dir = OrderedDict([(bag_group, None) for bag_group in bag_groups])
-        print('ordered dictionary here: ', data_dir)
-
-        frames_index=None  #None
-    elif cfg.DATA_SETS_TYPE == 'kitti':
-        data_dir = {'2011_09_26': ['0035']}
-
-        frames_index = None # [0,5,8,12,16,20,50]
-    elif cfg.DATA_SETS_TYPE == 'test':
-        data_dir = {'1':None, '2':None}
-        data_dir = OrderedDict(data_dir)
-        frames_index=None
     else:
         raise ValueError('unexpected type in cfg.DATA_SETS_TYPE item: {}!'.format(cfg.DATA_SETS_TYPE))
 
     import time
-    t0=time.time()
-    text_file_data = open("/home/mohsen/Desktop/MV3D/devkit_object/mapping/train_mapping.txt", "r")
 
-    lines = text_file_data.readlines()
-    framelist = []
-    counter = 0
-    tmp = -1
-    for line in lines:
-        l = line.split(' ')
-        data = l[0]
-        drive = l[1][17:21]
-        frames_index = int(l[2])
-        if data == '2011_09_26':
-            if drive == '0095' or drive == '0101' or drive == '0096' or drive == '0104' or drive == '0106' or drive == '0113' or drive == '0117':
-                print ('salam')
-            else:
-                if counter != 0:
-                    if drive != tmpdrive:
-                        data_dir = {tmpdata: [tmpdrive]}
-                        preproces(data_dir,framelist)
-                        framelist = []
+    t0 = time.time()
 
-                tmpdrive = drive
-                tmpdata = data
-                framelist.append(frames_index)
+    preproces(data_dir, frames_index)
 
 
-                counter = counter + 1
-        # data_dir = {data: [drive]}
-        # preproces(data_dir, None)
-
-    print('use time : {}'.format(time.time()-t0))
-
-
-
-
+    print('use time : {}'.format(time.time() - t0))

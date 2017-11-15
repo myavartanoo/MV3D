@@ -7,7 +7,7 @@ from config import *
 import argparse
 import os
 from utils.training_validation_data_splitter import TrainingValDataSplitter
-from utils.batch_loading import BatchLoading2 as BatchLoading
+from utils.batch_loading import batch_loading as batch_loading
 
 
 if __name__ == '__main__':
@@ -15,13 +15,13 @@ if __name__ == '__main__':
 
     all= '%s,%s,%s' % (mv3d_net.top_view_rpn_name ,mv3d_net.imfeature_net_name,mv3d_net.fusion_net_name)
 
-    parser.add_argument('-w', '--weights', type=str, nargs='?', default='',
+    parser.add_argument('-w', '--weights', type=str, nargs='?', default=all,
         help='use pre trained weights example: -w "%s" ' % (all))
 
     parser.add_argument('-t', '--targets', type=str, nargs='?', default=all,
         help='train targets example: -w "%s" ' % (all))
 
-    parser.add_argument('-i', '--max_iter', type=int, nargs='?', default=1000000,
+    parser.add_argument('-i', '--max_iter', type=int, nargs='?', default=100000,
                         help='max count of train iter')
 
     parser.add_argument('-n', '--tag', type=str, nargs='?', default='unknown_tag',
@@ -49,63 +49,101 @@ if __name__ == '__main__':
     dataset_dir = cfg.PREPROCESSED_DATA_SETS_DIR
 
     cfg.DATA_SETS_TYPE == 'kitti'
-    train_n_val_dataset = [
-        # '2011_09_26/2011_09_26_drive_0001_sync', # for tracking
-        '2011_09_26/2011_09_26_drive_0002_sync',
-        '2011_09_26/2011_09_26_drive_0005_sync',
-        # '2011_09_26/2011_09_26_drive_0009_sync',
-        '2011_09_26/2011_09_26_drive_0011_sync',
-        '2011_09_26/2011_09_26_drive_0013_sync',
-        '2011_09_26/2011_09_26_drive_0014_sync',
-        '2011_09_26/2011_09_26_drive_0015_sync',
-        '2011_09_26/2011_09_26_drive_0017_sync',
-        '2011_09_26/2011_09_26_drive_0018_sync',
-        '2011_09_26/2011_09_26_drive_0019_sync',
-        '2011_09_26/2011_09_26_drive_0020_sync',
-        '2011_09_26/2011_09_26_drive_0022_sync',
-        '2011_09_26/2011_09_26_drive_0023_sync',
-        '2011_09_26/2011_09_26_drive_0027_sync',
-        '2011_09_26/2011_09_26_drive_0028_sync',
-        '2011_09_26/2011_09_26_drive_0029_sync',
-        '2011_09_26/2011_09_26_drive_0032_sync',
-        '2011_09_26/2011_09_26_drive_0035_sync',
-        '2011_09_26/2011_09_26_drive_0036_sync',
-        '2011_09_26/2011_09_26_drive_0039_sync',
-        '2011_09_26/2011_09_26_drive_0046_sync',
-        '2011_09_26/2011_09_26_drive_0048_sync',
-        '2011_09_26/2011_09_26_drive_0051_sync',
-        '2011_09_26/2011_09_26_drive_0052_sync',
-        '2011_09_26/2011_09_26_drive_0056_sync',
-        '2011_09_26/2011_09_26_drive_0057_sync',
-        '2011_09_26/2011_09_26_drive_0059_sync',
-        '2011_09_26/2011_09_26_drive_0060_sync',
-        '2011_09_26/2011_09_26_drive_0061_sync',
-        '2011_09_26/2011_09_26_drive_0064_sync',
-        '2011_09_26/2011_09_26_drive_0070_sync',
-        '2011_09_26/2011_09_26_drive_0079_sync',
-        '2011_09_26/2011_09_26_drive_0084_sync',
-        '2011_09_26/2011_09_26_drive_0086_sync',
-        '2011_09_26/2011_09_26_drive_0087_sync',
-        '2011_09_26/2011_09_26_drive_0091_sync',
-        # '2011_09_26/2011_09_26_drive_0093_sync',  #data size not same
-        # '2011_09_26/2011_09_26_drive_0095_sync',
-        # '2011_09_26/2011_09_26_drive_0096_sync',
-        # '2011_09_26/2011_09_26_drive_0104_sync',
-        # '2011_09_26/2011_09_26_drive_0106_sync',
-        # '2011_09_26/2011_09_26_drive_0113_sync',
-        # '2011_09_26/2011_09_26_drive_0117_sync',
-        '2011_09_26/2011_09_26_drive_0119_sync',
-    ]
+    #train_n_val_dataset = [
+    #'object3d'
+    #     '2011_09_26/2011_09_26_drive_0001_sync', # for tracking
+    #     '2011_09_26/2011_09_26_drive_0002_sync',
+    #     '2011_09_26/2011_09_26_drive_0005_sync',
+    #     # '2011_09_26/2011_09_26_drive_0009_sync',
+    #     '2011_09_26/2011_09_26_drive_0011_sync',
+    #     '2011_09_26/2011_09_26_drive_0013_sync',
+    #     '2011_09_26/2011_09_26_drive_0014_sync',
+    #     '2011_09_26/2011_09_26_drive_0015_sync',
+    #     '2011_09_26/2011_09_26_drive_0017_sync',
+    #     '2011_09_26/2011_09_26_drive_0018_sync',
+    #     '2011_09_26/2011_09_26_drive_0019_sync',
+    #     '2011_09_26/2011_09_26_drive_0020_sync',
+    #     '2011_09_26/2011_09_26_drive_0022_sync',
+    #     '2011_09_26/2011_09_26_drive_0023_sync',
+    #     '2011_09_26/2011_09_26_drive_0027_sync',
+    #     '2011_09_26/2011_09_26_drive_0028_sync',
+    #     '2011_09_26/2011_09_26_drive_0029_sync',
+    #     '2011_09_26/2011_09_26_drive_0032_sync',
+    #     '2011_09_26/2011_09_26_drive_0035_sync',
+    #     '2011_09_26/2011_09_26_drive_0036_sync',
+    #     '2011_09_26/2011_09_26_drive_0039_sync',
+    #     '2011_09_26/2011_09_26_drive_0046_sync',
+    #     '2011_09_26/2011_09_26_drive_0048_sync',
+    #     '2011_09_26/2011_09_26_drive_0051_sync',
+    #     '2011_09_26/2011_09_26_drive_0052_sync',
+    #     '2011_09_26/2011_09_26_drive_0056_sync',
+    #     '2011_09_26/2011_09_26_drive_0057_sync',
+    #     '2011_09_26/2011_09_26_drive_0059_sync',
+    #     '2011_09_26/2011_09_26_drive_0060_sync',
+    #     '2011_09_26/2011_09_26_drive_0061_sync',
+    #     '2011_09_26/2011_09_26_drive_0064_sync',
+    #     '2011_09_26/2011_09_26_drive_0070_sync',
+    #     '2011_09_26/2011_09_26_drive_0079_sync',
+    #     '2011_09_26/2011_09_26_drive_0084_sync',
+    #     '2011_09_26/2011_09_26_drive_0086_sync',
+    #     '2011_09_26/2011_09_26_drive_0087_sync',
+    #     '2011_09_26/2011_09_26_drive_0091_sync',
+    #     # '2011_09_26/2011_09_26_drive_0093_sync',  #data size not same
+    #     # '2011_09_26/2011_09_26_drive_0095_sync',
+    #     # '2011_09_26/2011_09_26_drive_0096_sync',
+    #     # '2011_09_26/2011_09_26_drive_0104_sync',
+    #     # '2011_09_26/2011_09_26_drive_0106_sync',
+    #     # '2011_09_26/2011_09_26_drive_0113_sync',
+    #     # '2011_09_26/2011_09_26_drive_0117_sync',
+    #     ##'2011_09_26/2011_09_26_drive_0119_sync',
+    #]
 
     # shuffle bag list or same kind of bags will only be in training or validation set.
-train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
-data_splitter = TrainingValDataSplitter(train_n_val_dataset)
+# train_n_val_dataset = shuffle(train_n_val_dataset, random_state=666)
+# data_splitter = TrainingValDataSplitter(train_n_val_dataset)
+#
+# with BatchLoading(tags=data_splitter.training_tags, require_shuffle=True, random_num=np.random.randint(100),
+#                   is_flip=False) as training:
+#     with BatchLoading(tags=data_splitter.val_tags, queue_size=1, require_shuffle=True, random_num=666) as validation:
 
-with BatchLoading(tags=data_splitter.training_tags, require_shuffle=True, random_num=np.random.randint(100),
-                  is_flip=False) as training:
-    with BatchLoading(tags=data_splitter.val_tags, queue_size=1, require_shuffle=True, random_num=666) as validation:
-        train = mv3d.Trainer(train_set=training, validation_set=validation,
-                             pre_trained_weights=weights, train_targets=targets, log_tag=tag,
-                             continue_train=args.continue_train)
+    cfg.DATA_SETS_TYPE == 'kitti'
+    if cfg.OBJ_TYPE == 'car':
+        train_car = 'object3d'
+        train_data = 'train'
+        train_dataset = {
+            train_car: [train_data]
+        }
+    if cfg.OBJ_TYPE == 'car':
+        validation_car = 'object3d'
+        validation_data = 'validation'
+        validation_dataset = {
+            validation_car: [validation_data]
+        }
 
-        train(max_iter=max_iter)
+    # compare newly generated tracklet_label_pred.xml with tracklet_labels_gt.xml. Change the path accordingly to
+    #  fits you needs.
+    # gt_tracklet_file = os.path.join(cfg.RAW_DATA_SETS_DIR, car, car + '_drive_' + data + '_sync',
+    #                                    'tracklet_labels.xml')
+
+    dataset_loader_train = batch_loading(cfg.PREPROCESSED_DATA_SETS_DIR, train_dataset, is_testset=False)
+    dataset_loader_validation = batch_loading(cfg.PREPROCESSED_DATA_SETS_DIR, validation_dataset, is_testset=False)
+
+    #with BatchLoading(tags=train_dataset, require_shuffle=True, random_num=np.random.randint(100),
+    #                  is_flip=False) as dataset_loader_train:
+    #    with BatchLoading(tags=validation_dataset, queue_size=1, require_shuffle=True, random_num=666) as dataset_loader_validation:
+
+
+
+    #print (dataset_loader_train)
+    train = mv3d.Trainer(train_set=dataset_loader_train, validation_set=dataset_loader_validation,
+                             pre_trained_weights=weights, train_targets=targets, log_tag=tag,continue_train=args.continue_train)
+
+    train(max_iter=max_iter)
+    #
+    # with batch_loading(cfg.PREPROCESSED_DATA_SETS_DIR, train_dataset, is_testset=False) as dataset_loader_train:
+    #     with batch_loading(cfg.PREPROCESSED_DATA_SETS_DIR, validation_dataset, is_testset=False) as dataset_loader_validation:
+    #         train = mv3d.Trainer(train_set=dataset_loader_train, validation_set=dataset_loader_validation,
+    #                              pre_trained_weights=weights, train_targets=targets, log_tag=tag,
+    #                              continue_train=args.continue_train)
+    #
+    #         train(max_iter=max_iter)

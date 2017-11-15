@@ -6,6 +6,7 @@ from shapely.geometry import Polygon
 from config import TOP_X_MAX,TOP_X_MIN,TOP_Y_MAX,TOP_Z_MIN,TOP_Z_MAX, \
     TOP_Y_MIN,TOP_X_DIVISION,TOP_Y_DIVISION,TOP_Z_DIVISION, MATRIX_Mt, MATRIX_Kt
 from config import cfg
+from read_obj import readCalibration, computeOrientation3D
 
 ##extension for 3d
 def top_to_lidar_coords(xx,yy):
@@ -147,6 +148,39 @@ def box3d_to_rgb_box(boxes3d, Mt=None, Kt=None):
 
 
 
+
+
+def box3d_to_rgb_box_obj(boxes3d, calib, R, R0_rect, Tr_velo_to_cam):
+    if (cfg.DATA_SETS_TYPE == 'kitti'):
+
+
+
+        Kt = np.array([[calib[0,0], calib[1,1], calib[2,2]],\
+                       [calib[1,0], calib[2,1], calib[0,3]], \
+                       [calib[2, 0], calib[0, 2], calib[1, 3]]])
+
+
+
+        dot = np.dot(R0_rect,Tr_velo_to_cam).T
+        Mt = np.concatenate((dot,np.array([[0,0,0,100]]).T),axis=1)
+
+        num  = len(boxes3d)
+        projections = np.zeros((num,8,2),  dtype=np.int32)
+        for n in range(num):
+            box3d = boxes3d[n]
+            Ps = np.hstack(( box3d, np.ones((8,1))) )
+            Qs = np.matmul(Ps,Mt)
+            Qs = Qs[:,0:3]
+            qs = np.matmul(Qs,Kt)
+            zs = qs[:,2].reshape(8,1)
+            qs = (qs/zs)
+            projections[n] = qs[:,0:2]
+        print (projections)
+        return projections
+
+
+
+
 def box3d_to_top_projections(boxes3d):
 
     num = len(boxes3d)
@@ -174,6 +208,7 @@ def draw_rgb_projections(image, projections, color=(255,0,255), thickness=2, dar
 
     img = (image.copy()*darker).astype(np.uint8)
     num=len(projections)
+
     for n in range(num):
         qs = projections[n]
         for k in range(0,4):
@@ -188,6 +223,8 @@ def draw_rgb_projections(image, projections, color=(255,0,255), thickness=2, dar
             cv2.line(img, (qs[i,0],qs[i,1]), (qs[j,0],qs[j,1]), color, thickness, cv2.LINE_AA)
 
     return img
+
+
 
 
 def draw_box3d_on_top(image, boxes3d,color=(255,255,255), thickness=1):

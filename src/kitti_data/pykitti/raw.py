@@ -288,6 +288,7 @@ class raw:
         imL_files = sorted(glob.glob(imL_path))
 
         # Subselect the chosen range of frames, if any
+        print(self.frame_range)
         if self.frame_range:
             imL_files = [imL_files[i] for i in self.frame_range]
 

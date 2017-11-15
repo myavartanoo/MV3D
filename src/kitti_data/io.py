@@ -1,5 +1,6 @@
 # from kitti_data import pykitti
-from kitti_data.pykitti.tracklet import parseXML, TRUNC_IN_IMAGE, TRUNC_TRUNCATED
+
+from kitti_data.pykitti.tracklet import parseXML, TRUNC_IN_IMAGE, TRUNC_TRUNCATED, OCC_VISIBLE
 
 import numpy as np
 import math
@@ -19,6 +20,7 @@ def read_objects(tracklet_file, frames_index):
 
         # this part is inspired by kitti object development kit matlab code: computeBox3D
         h,w,l = tracklet.size
+
         if cfg.DATA_SETS_TYPE == 'didi2' or cfg.DATA_SETS_TYPE == 'didi' or cfg.DATA_SETS_TYPE == 'test':
             h, w = h*1.1, l
             trackletBox = np.array([
@@ -51,8 +53,16 @@ def read_objects(tracklet_file, frames_index):
             if cfg.DATA_SETS_TYPE == 'kitti':
                 # print('truncation filter disable')
                 # determine if object is in the image; otherwise continue
+                # print (OCC_VISIBLE)
+                # print (occlusion[1])
+                # print (TRUNC_IN_IMAGE)
+                # print (truncation)
+
                 if truncation not in (TRUNC_IN_IMAGE, TRUNC_TRUNCATED):
                    continue
+                # if (int(truncation),int(occlusion[1]))  !=   (TRUNC_IN_IMAGE, OCC_VISIBLE) :
+                #     continue
+
                 # pass
             elif cfg.DATA_SETS_TYPE == 'didi2':
                 # todo : 'truncation filter disable'
@@ -67,6 +77,8 @@ def read_objects(tracklet_file, frames_index):
 
             # re-create 3D bounding box in velodyne coordinate system
             yaw = rotation[2]   # other rotations are 0 in all xml files I checked
+
+
             #assert np.abs(rotation[:2]).sum() == 0, 'object rotations other than yaw given!'
             rotMat = np.array([\
               [np.cos(yaw), -np.sin(yaw), 0.0], \
@@ -86,10 +98,13 @@ def read_objects(tracklet_file, frames_index):
             o.type = tracklet.objectType
             o.tracklet_id = n
 
-            if o.type == 'Van' or o.type == 'Truck' or o.type == 'Car' or o.type == 'Tram':  # todo : only  support 'Van'
+            if o.type == 'Van' or o.type == 'Truck' or o.type == 'Car' or o.type == 'Tram':   # todo : only  support 'Van'
                 o.translation=translation
                 o.rotation=rotation
                 o.size=tracklet.size
+                print ('translation')
+                print (translation)
+
             else:
                 continue
 

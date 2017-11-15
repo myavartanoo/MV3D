@@ -131,16 +131,16 @@ elif __C.DATA_SETS_TYPE == 'didi2':
         raise ValueError('unknown type:{}'.format(__C.OBJ_TYPE))
 
 elif __C.DATA_SETS_TYPE == 'kitti':
-    TOP_Y_MIN = -30
-    TOP_Y_MAX = +30
+    TOP_Y_MIN = -40
+    TOP_Y_MAX = +40
     TOP_X_MIN = 0
-    TOP_X_MAX = 100
+    TOP_X_MAX = 70.4
     TOP_Z_MIN = -3.5
     TOP_Z_MAX = 0.6
 
-    TOP_X_DIVISION = 0.2
-    TOP_Y_DIVISION = 0.2
-    TOP_Z_DIVISION = 0.3
+    TOP_X_DIVISION = 0.1
+    TOP_Y_DIVISION = 0.1
+    TOP_Z_DIVISION = 0.1
 else:
     raise ValueError('unexpected type in cfg.DATA_SETS_TYPE item: {}!'.format(__C.DATA_SETS_TYPE))
 

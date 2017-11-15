@@ -18,7 +18,11 @@ from time import localtime, strftime
 from utils.batch_loading import BatchLoading2 as BatchLoading
 from utils.training_validation_data_splitter import get_test_tags
 from collections import deque
+import net.processing.boxes3d as box3d
 
+
+
+import glob
 log_dir = None
 
 fast_test = False
@@ -32,8 +36,9 @@ log_dir = os.path.join(cfg.LOG_DIR, log_subdir)
 def pred_and_save(tracklet_pred_dir, dataset, generate_video=False,
                   frame_offset=16, log_tag=None, weights_tag=None):
     # Tracklet_saver will check whether the file already exists.
-    tracklet = Tracklet_saver(tracklet_pred_dir)
+    tracklet = Tracklet_saver(tracklet_pred_dir,'pred')
     os.makedirs(os.path.join(log_dir, 'image'), exist_ok=True)
+    gt_tracklet = Tracklet_saver(tracklet_pred_dir, 'gt')
 
     top_shape, front_shape, rgb_shape = dataset.get_shape()
     predict = mv3d.Predictor(top_shape, front_shape, rgb_shape, log_tag=log_tag, weights_tag=weights_tag)
@@ -49,6 +54,8 @@ def pred_and_save(tracklet_pred_dir, dataset, generate_video=False,
     print ('dataset.size')
     print (dataset.size)
     lenght=[]
+    gt_lenght=[]
+
     frame_num = 0
     for i in range(dataset.size if fast_test == False else frame_offset + 1):
 
@@ -60,7 +67,27 @@ def pred_and_save(tracklet_pred_dir, dataset, generate_video=False,
         if frame_num < 0:
             continue
 
-        boxes3d, probs = predict(top, front, rgb)
+        gt_boxes3d_tmp = np.load('/home/mohsen/Desktop/MV3D/data/preprocessed/kitti/gt_boxes3d/object3d/test/%05d.npy'%i)
+
+
+        #remove gt boxes with hiegh less than 40
+        gt_boxes3d_list = []
+        for gt_box3d_tmp in gt_boxes3d_tmp:
+          # if gt_box3d_tmp[0,0]>0:
+            gt_box3d_tmp_list = []
+            gt_box3d_tmp_list.append(gt_box3d_tmp)
+            gt_project = box3d.box3d_to_rgb_box(gt_box3d_tmp_list)
+
+            if abs(gt_project[0][0, 1] - gt_project[0][4, 1]) >= 40:
+                gt_box3d = gt_box3d_tmp
+                gt_boxes3d_list.append(gt_box3d)
+        gt_boxes3d = np.array(gt_boxes3d_list)
+        # gt_boxes3d = gt_boxes3d_tmp
+
+
+        #####################################
+        boxes3d_tmp, probs = predict(top, front, rgb)
+
         predict.dump_log(log_subdir=log_subdir, n_frame=i)
 
         # time timer_step iterations. Turn it on/off in config.py
@@ -72,11 +99,54 @@ def pred_and_save(tracklet_pred_dir, dataset, generate_video=False,
         top_image = draw_top_image(top[0])
         rgb_image = rgb[0]
 
-        if len(boxes3d) != 0:
+
+
+        if len(gt_boxes3d) != 0:
+
+            gt_lenght.append(len(gt_boxes3d))
+
+            gt_translation, gt_size, gt_rotation = boxes3d_decompose(gt_boxes3d[:, :, :])
+
+            # todo: remove it after gtbox is ok
+            gt_size[:, 1:3] = gt_size[:, 1:3] / cfg.TRACKLET_GTBOX_LENGTH_SCALE
+
+            for j in range(len(gt_translation)):
+                gt_tracklet.add_tracklet(frame_num, gt_size[j], gt_translation[j], gt_rotation[j])
+
+
+
+        #remove predicted boxes with hiegh less than 40
+        boxes3d_list = []
+        for box3d_tmp in boxes3d_tmp:
+          # if box3d_tmp[0, 0] > 0:
+
+            box3d_tmp_list = []
+            box3d_tmp_list.append(box3d_tmp)
+            project = box3d.box3d_to_rgb_box(box3d_tmp_list)
+
+            if abs(project[0][0, 1] - project[0][4, 1]) >= 40:
+                print (project[0][0, 1] - project[0][4, 1])
+                pred_box3d = box3d_tmp
+                boxes3d_list.append(pred_box3d)
+        boxes3d = np.array(boxes3d_list)
+        # boxes3d = boxes3d_tmp
+
+        #####################################
+        print ('sizes')
+        print (np.size(boxes3d))
+        print (gt_boxes3d)
+        print (np.size(gt_boxes3d))
+
+        if len(boxes3d) !=0 :
             lenght.append(len(boxes3d))
 
             top_image = draw_box3d_on_top(top_image, boxes3d[:, :, :], color=(80, 80, 0), thickness=3)
             rgb_image = draw_box3d_on_camera(rgb_image, boxes3d[:, :, :], color=(0, 0, 80), thickness=3)
+
+
+            if len(gt_boxes3d) !=0 :
+                rgb_image = draw_box3d_on_camera(rgb_image, gt_boxes3d[:, :, :], color=(0, 80, 0), thickness=3)
+
             translation, size, rotation = boxes3d_decompose(boxes3d[:, :, :])
 
             # todo: remove it after gtbox is ok
@@ -98,13 +168,16 @@ def pred_and_save(tracklet_pred_dir, dataset, generate_video=False,
     print (sum(lenght))
     tracklet.write_tracklet()
     predict.dump_weigths(os.path.join(log_dir, 'pretrained_model'))
+    print (gt_lenght)
+    print (sum(gt_lenght))
+    gt_tracklet.write_tracklet()
 
     if cfg.TRACKING_TIMER:
         predict.log_msg.write('It takes %0.2f secs for inferring the whole test dataset. \n' % \
                               (time_it.total_time()))
 
     print("tracklet file named tracklet_labels.xml is written successfully.")
-    return tracklet.path
+    return tracklet.path, gt_tracklet.path
 
 
 def str2bool(v):
@@ -156,25 +229,26 @@ if __name__ == '__main__':
 
     # Set true if you want score after export predicted tracklet xml
     # set false if you just want to export tracklet xml
+    if_score = True
 
     config.cfg.DATA_SETS_TYPE == 'kitti'
-    if_score = True
-    car = '2011_09_26'
-    data = '0051'
-    dataset = {
-        car: [data]
-    }
+    if cfg.OBJ_TYPE == 'car':
+        car = 'object3d'
+        data = 'test'
+        dataset = {
+            car: [data]
+        }
 
 
     # compare newly generated tracklet_label_pred.xml with tracklet_labels_gt.xml. Change the path accordingly to
     #  fits you needs.
-    gt_tracklet_file = os.path.join(cfg.RAW_DATA_SETS_DIR, car, car + '_drive_' + data + '_sync',
-                                        'tracklet_labels.xml')
+    #gt_tracklet_file = os.path.join(cfg.RAW_DATA_SETS_DIR, car, car + '_drive_' + data + '_sync',
+    #                                    'tracklet_labels.xml')
 
     dataset_loader = ub.batch_loading(cfg.PREPROCESSED_DATA_SETS_DIR, dataset, is_testset=True)
 
     # print("tracklet_pred_dir: " + tracklet_pred_dir)
-    pred_file = pred_and_save(tracklet_pred_dir, dataset_loader,
+    pred_file,gt_tracklet_file = pred_and_save(tracklet_pred_dir, dataset_loader,
                               frame_offset=0, log_tag=tag, weights_tag=weights_tag)
 
 
